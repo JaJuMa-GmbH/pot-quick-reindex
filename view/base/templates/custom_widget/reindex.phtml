@@ -1,0 +1,302 @@
+<?php
+
+/** @var Reindex $block * */
+/** @var Escaper $escaper */
+
+use Jajuma\PotQuickReindex\Block\PowerToys\QuickAction\Reindex;
+use Jajuma\PowerToys\Helper\Data;
+use Magento\Framework\Escaper;
+
+/** @var Data $powerToysHelper * */
+$powerToysHelper = $this->helper(Data::class);
+$indexers = $magewire->getAllRegistryIndexers();
+$viewModel = $block->getViewModel();
+$sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load'));
+?>
+
+<div class="powertoys-quick-reindex-wrapper" wire:loading.class="loading" id="powertoys-quick-reindex-wrapper" wire:poll.3000ms>
+    <div class="powertoys-loading-wrapper">
+        <div class="powertoys-dots">
+            <div class="powertoys-dot"></div>
+            <div class="powertoys-dot"></div>
+            <div class="powertoys-dot"></div>
+        </div>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+        <button class="reset-all" onclick="reindexAllIndexers()"><?= 'Reindex All' ?></button>
+        <button class="reindex-all" onclick="resetAllIndexers()"><?= 'Reset All Indexer' ?></button>
+    </div>
+    <?php if ($magewire->getMessage()) :?>
+        <div class="powertoys-indexer-message">
+            <?= $magewire->getMessage() ?>
+        </div>
+    <?php endif; ?>
+    <?php if (count($indexers)): ?>
+        <div class="admin__data-grid-wrap admin__data-grid-wrap-static">
+            <table class="data-grid" id="gridIndexer_table">
+                <thead>
+                <tr>
+                    <th class="data-grid-th no-link col-indexer_title"><span><?= 'Indexer' ?></span></th>
+                    <th class="data-grid-th no-link col-indexer_schedule_status"><span><?= 'Schedule Status' ?></span></th>
+                    <th class="data-grid-th no-link col-indexer_schedule_action"><span><?= 'Status' ?></span></th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($indexers as $indexer): ?>
+                    <tr data-role="row" title="#" class="even">
+                        <td data-column="indexer_title"
+                            class="a-left indexer-title col-indexer_title  "><?= $indexer->getData('title') ?></td>
+                        <td data-column="indexer_schedule_status"
+                            class="indexer-schedule-status col-indexer_schedule_status">
+                            <?= $viewModel->renderHtml($indexer, 'schedule_status') ?>
+                        </td>
+                        <td class="indexer-schedule-status col-indexer_schedule_action">
+                            <?php if ($indexer->getStatus() == "valid"): ?>
+                                <button class="action-primary" onclick="reindexByID('<?= $indexer->getData('indexer_id') ?>')">
+                                    <?= $viewModel->renderHtml($indexer, 'status') ?>
+                                </button>
+                            <?php else: ?>
+                                <button class="action-primary" onclick="reindexByID('<?= $indexer->getData('indexer_id') ?>')">
+                                    <span><?= 'Reindex' ?></span>
+                                </button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php else: ?>
+
+    <?php endif; ?>
+    <script>
+        setInterval(()=>{
+            let actionSel = '.powertoys-modal-<?= $block->getData('block_id') ?>';
+            if (document.querySelector(actionSel) && document.querySelector(actionSel).classList.contains('open')) {
+                document.querySelector(`${actionSel} .powertoys-quick-reindex-wrapper`).setAttribute('wire:poll.3000ms', '');
+            } else {
+                document.querySelector(`${actionSel} .powertoys-quick-reindex-wrapper`).removeAttribute('wire:poll.3000ms');
+            }
+        },1000)
+
+        var reindexAction = document.querySelector(".powertoys-action-item-quick_reindex");
+        var containerReindexWrapper = document.getElementById("powertoys-quick-reindex-wrapper");
+        var needLoadData = containerReindexWrapper.parentElement;
+
+        function reindexAllIndexers() {
+            containerReindexWrapper.classList.add('powertoysloading');
+            setTimeout(()=>{
+                containerReindexWrapper.classList.remove('powertoysloading');
+            },250);
+            Magewire.emit(
+                'reindexAllIndexers'
+            );
+            setTimeout(function() {
+                containerReindexWrapper.classList.remove('powertoysloading');
+            }, 3000);
+        }
+
+        function resetAllIndexers() {
+            containerReindexWrapper.classList.add('powertoysloading');
+            setTimeout(()=>{
+                containerReindexWrapper.classList.remove('powertoysloading');
+            },250);
+            Magewire.emit(
+                'resetAllIndexers'
+            );
+            setTimeout(function() {
+                containerReindexWrapper.classList.remove('powertoysloading');
+            }, 3000);
+        }
+
+        function reindexByID(indexerID) {
+            containerReindexWrapper.classList.add('powertoysloading');
+            setTimeout(()=>{
+                containerReindexWrapper.classList.remove('powertoysloading');
+            },250);
+            Magewire.emit(
+                'reindexById',
+                {
+                    indexer_ID: indexerID
+                }
+            );
+        }
+        containerReindexWrapper.removeEventListener('reload-indexers-list', function () {});
+        containerReindexWrapper.addEventListener('reload-indexers-list', (event) => {
+            try {
+                fetch('<?= $sectionLoadUrl ?>' + `?action_id=quick_reindex&type=quickaction`).then(rawResp => {
+                    if (rawResp.status === 200) {
+                        rawResp.json().then(json => {
+                            needLoadData.innerHTML = json.html;
+                            if (json.js && (json.js !== '')) {
+                                //Load Additional Javascript
+                                loadScript(json.js);
+                            }
+                            Magewire.rescan();
+                        })
+                    } else {
+                        containerReindexWrapper.classList.remove("powertoysloading");
+                        throw new Error('Error! Cannot loading Powertoys')
+                    }
+                })
+            } catch (error) {
+                console.log('There was an error', error);
+                containerReindexWrapper.classList.remove("powertoysloading");
+            } finally {
+                checkIndexIsValid();
+            }
+        });
+
+        document.querySelector('.jajuma-powertoys-floating-btn').addEventListener('click', checkIndexIsValid);
+
+        function checkIndexIsValid() {
+            Magewire.emit(
+                'checkIndexIsValid',
+                {}
+            );
+        }
+
+        window.addEventListener('index-is-valid', (event) => {
+            reindexAction.classList.remove("indexInvalid");
+            console.log("Index is valid");
+        });
+
+        window.addEventListener('index-is-invalid', (event) => {
+            reindexAction.classList.add("indexInvalid");
+            console.log("Index is invalid");
+        });
+
+    </script>
+    <style>
+        .powerToysModalWrapper .powertoys-modal.powertoys-modal-quick_reindex {
+            top: 20px !important;
+        }
+
+        .powertoys-action-item-quick_reindex:before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            position: absolute;
+            top: 4px;
+            left: 27px;
+            background: #68ef24;
+            border: 0.5px solid #6b6c74;
+            border-radius: 50%;
+        }
+
+        .powertoys-action-item-quick_reindex.indexInvalid:before {
+            background: #ef4444;
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table th {
+            text-align: left;
+            padding: 0 0 10px;
+            border: none;
+            background: rgba(0,0,0,0);
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr td {
+            height: 34px;
+            background: rgba(0,0,0,0);
+            border: none;
+            color: #fff !important;
+        }
+
+        #jajuma-powertoys-floating-panel.jajumaLightMode ~ .powerToysModalWrapper .powertoys-quick-reindex-wrapper #gridIndexer_table tr th,
+        #jajuma-powertoys-floating-panel.jajumaLightMode ~ .powerToysModalWrapper .powertoys-quick-reindex-wrapper #gridIndexer_table tr td {
+            color: var(--jajuma-develop-black-module) !important;
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr:nth-child(odd) td {
+            background-color: rgba(239 239 239 / 20%);
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr td.col-indexer_title {
+            padding: 0px 0 0 6px;
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table tbody .col-indexer_schedule_action {
+            padding: 0;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .powertoys-quick-reindex-wrapper .grid-severity-critical,
+        .powertoys-quick-reindex-wrapper .grid-severity-major,
+        .powertoys-quick-reindex-wrapper .grid-severity-notice,
+        .powertoys-quick-reindex-wrapper .grid-severity-minor {
+            color: #FF4343;
+            background: rgba(0,0,0,0);
+            border: none;
+            text-align: left;
+            padding: 0;
+            text-transform: capitalize;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .powertoys-quick-reindex-wrapper .grid-severity-notice {
+            color: #00CC6A;
+        }
+
+        #jajuma-powertoys-floating-panel.jajumaLightMode ~ .powerToysModalWrapper .powertoys-quick-reindex-wrapper .grid-severity-notice {
+            color: #10893E;
+        }
+
+        #jajuma-powertoys-floating-panel.jajumaLightMode ~ .powerToysModalWrapper .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr:nth-child(odd) td {
+            background-color: rgba(255, 255, 255, .67);
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr .action-primary {
+            width: 100%;
+            cursor: pointer;
+            padding: 0;
+            height: 100%;
+            background: rgba(0, 0, 0, 0);
+            color: var(--jajuma-develop-light-module);
+            border: none;
+            text-align: left;
+            font-weight: 400;
+            box-shadow: none;
+            outline: none;
+            text-shadow: none;
+        }
+
+        #jajuma-powertoys-floating-panel.jajumaLightMode ~ .powerToysModalWrapper .powertoys-quick-reindex-wrapper .action-primary {
+            color: #FFB900;
+        }
+
+        .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr .action-primary:hover {
+            text-decoration: underline;
+        }
+
+        .powerToysModalWrapper .powertoys-modal.powertoys-modal-quick_reindex .powertoys-indexer-message {
+            margin-top: 10px;
+        }
+
+        @media (min-width: 1025px) {
+            .powerToysModalWrapper .powertoys-modal.powertoys-modal-quick_reindex {
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+            }
+
+            .powertoys-quick-reindex-wrapper {
+                overflow-y: auto;
+                max-height: 550px;
+                width: 400px;
+            }
+
+            .powertoys-quick-reindex-wrapper #gridIndexer_table tbody tr {
+                transition: .3s ease color;
+            }
+        }
+    </style>
+</div>
