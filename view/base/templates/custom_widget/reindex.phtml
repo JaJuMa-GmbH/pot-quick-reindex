@@ -12,6 +12,8 @@ $powerToysHelper = $this->helper(Data::class);
 $indexers = $magewire->getAllRegistryIndexers();
 $viewModel = $block->getViewModel();
 $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load'));
+$powerToysHelper = $this->helper(\Jajuma\PowerToys\Helper\Data::class);
+$nonce = $powerToysHelper->getNonce();
 ?>
 
 <div class="powertoys-quick-reindex-wrapper" wire:loading.class="loading" id="powertoys-quick-reindex-wrapper" wire:poll.3000ms>
@@ -69,7 +71,7 @@ $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load
     <?php else: ?>
 
     <?php endif; ?>
-    <script>
+    <script <?= $nonce ? 'nonce="' . $nonce . '"' : '' ?>>
         setInterval(()=>{
             let actionSel = '.powertoys-modal-<?= $block->getData('block_id') ?>';
             if (document.querySelector(actionSel) && document.querySelector(actionSel).classList.contains('open')) {
