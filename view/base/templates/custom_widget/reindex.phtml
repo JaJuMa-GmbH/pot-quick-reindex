@@ -88,9 +88,11 @@ $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load
             setTimeout(()=>{
                 containerReindexWrapper.classList.remove('powertoysloading');
             },250);
-            Magewire.emit(
-                'reindexAllIndexers'
-            );
+            window.addEventListener('magewire:load', () => {
+                Magewire.emit(
+                    'reindexAllIndexers'
+                );
+            });
             setTimeout(function() {
                 containerReindexWrapper.classList.remove('powertoysloading');
             }, 3000);
@@ -101,9 +103,11 @@ $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load
             setTimeout(()=>{
                 containerReindexWrapper.classList.remove('powertoysloading');
             },250);
-            Magewire.emit(
-                'resetAllIndexers'
-            );
+            window.addEventListener('magewire:load', () => {
+                Magewire.emit(
+                    'resetAllIndexers'
+                );
+            });
             setTimeout(function() {
                 containerReindexWrapper.classList.remove('powertoysloading');
             }, 3000);
@@ -114,12 +118,14 @@ $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load
             setTimeout(()=>{
                 containerReindexWrapper.classList.remove('powertoysloading');
             },250);
-            Magewire.emit(
-                'reindexById',
-                {
-                    indexer_ID: indexerID
-                }
-            );
+            window.addEventListener('magewire:load', () => {
+                Magewire.emit(
+                    'reindexById',
+                    {
+                        indexer_ID: indexerID
+                    }
+                );
+            });
         }
         containerReindexWrapper.removeEventListener('reload-indexers-list', function () {});
         containerReindexWrapper.addEventListener('reload-indexers-list', (event) => {
@@ -150,10 +156,12 @@ $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load
         document.querySelector('.jajuma-powertoys-floating-btn').addEventListener('click', checkIndexIsValid);
 
         function checkIndexIsValid() {
-            Magewire.emit(
-                'checkIndexIsValid',
-                {}
-            );
+            window.addEventListener('magewire:load', () => {
+                Magewire.emit(
+                    'checkIndexIsValid',
+                    {}
+                );
+            });
         }
 
         window.addEventListener('index-is-valid', (event) => {
@@ -298,5 +306,13 @@ $sectionLoadUrl = $escaper->escapeUrl($block->getUrl('jajuma_powertoys/html/load
                 transition: .3s ease color;
             }
         }
+
+        /* Favorite action icon */
+
+        .power-toys-favorite .powertoys-action-item-quick_reindex:before {
+            top: -1px;
+            left: 18px;
+        }
+
     </style>
 </div>
